@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { PNG } from 'pngjs';
-import { createProject, fitBackground, fitCamera, normalizeAngle, parseProject, parseProjectText, rotate, screenToWorld, serializeProject, worldToScreen, zoomAt, type ProjectV1 } from '../src/model';
+import { createProject, fitBackground, fitCamera, normalizeAngle, parseProject, parseProjectText, rotate, screenToWorld, serializeProject, worldToScreen, zoomAt, type Project } from '../src/model';
 import { exportSvg, objectMarkup } from '../src/scene';
 import { crc32, pngDimensions, withPngDpi } from '../src/png';
 import { commit, initialHistory, redo, undo } from '../src/history';
 
-function example(): ProjectV1 {
+function example(): Project {
   return { ...createProject(), objects: [
     { id: 'city-1', type: 'city', x: 45.125, y: 80, name: 'Санкт-Петербург & <город>', labelOffset: { x: 8, y: -7 } },
     { id: 'wagon-1', type: 'wagon', x: 110, y: 80, angle: 359.9, color: 'pink' },
@@ -26,7 +26,7 @@ describe('project data', () => {
     expect(() => parseProject(p)).toThrow('Некорректный проект');
   });
   it('rejects unknown versions, malformed JSON, duplicates and unsafe image formats', () => {
-    expect(() => parseProject({ ...createProject(), version: 2 })).toThrow('версия');
+    expect(() => parseProject({ ...createProject(), version: 99 })).toThrow('версия');
     expect(() => parseProjectText('{bad}')).toThrow('JSON');
     const p = example(); p.objects.push(p.objects[0]);
     expect(() => parseProject(p)).toThrow();

@@ -1,0 +1,21 @@
+{
+  "format": "ttr-map",
+  "version": 2,
+  "board": { "width": 785, "height": 525 },
+  "sizes": { "wagonLength": 26, "wagonWidth": 9, "cityDiameter": 10 },
+  "objects": [
+    { "id": "city-a", "type": "city", "x": 260, "y": 250, "name": "Озёрная", "labelOffset": { "x": -10, "y": -12 } },
+    { "id": "city-b", "type": "city", "x": 500, "y": 250, "name": "Лесная", "labelOffset": { "x": -9, "y": -12 } },
+    { "id": "blue-1", "type": "wagon", "x": 320, "y": 250, "angle": 0, "color": "blue" },
+    { "id": "blue-2", "type": "wagon", "x": 380, "y": 250, "angle": 0, "color": "blue" },
+    { "id": "blue-3", "type": "wagon", "x": 440, "y": 250, "angle": 0, "color": "blue" },
+    { "id": "red-1", "type": "wagon", "x": 320, "y": 263, "angle": 0, "color": "red" },
+    { "id": "red-2", "type": "wagon", "x": 380, "y": 263, "angle": 0, "color": "red" },
+    { "id": "red-3", "type": "wagon", "x": 440, "y": 263, "angle": 0, "color": "red" }
+  ],
+  "background": null,
+  "routes": [
+    { "id": "route-blue", "startCityId": "city-a", "endCityId": "city-b", "wagons": [{ "wagonId": "blue-1", "entry": "minus" }, { "wagonId": "blue-2", "entry": "minus" }, { "wagonId": "blue-3", "entry": "minus" }], "showConnections": true },
+    { "id": "route-red", "startCityId": "city-a", "endCityId": "city-b", "wagons": [{ "wagonId": "red-1", "entry": "minus" }, { "wagonId": "red-2", "entry": "minus" }, { "wagonId": "red-3", "entry": "minus" }], "showConnections": true }
+  ]
+}

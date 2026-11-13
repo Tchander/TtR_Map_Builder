@@ -1,6 +1,6 @@
 {
   "name": "ttr-map-builder",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Редактор игровых полей с размерами в миллиметрах",
   "author": "TtR Map Builder",
   "private": true,
@@ -13,7 +13,9 @@
     "start": "electron .",
     "build:exe": "npm run build && electron-builder --win portable --x64 && node scripts/copy-release.mjs",
     "test:e2e": "node scripts/smoke.mjs",
-    "test:e2e:portable": "node scripts/smoke.mjs --portable"
+    "test:e2e:portable": "node scripts/smoke.mjs --portable",
+    "test:routes": "node scripts/routes-smoke.mjs",
+    "test:routes:portable": "node scripts/routes-smoke.mjs --portable"
   },
   "build": {
     "appId": "local.ttr.mapbuilder",

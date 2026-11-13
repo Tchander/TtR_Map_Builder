@@ -3,9 +3,10 @@ import type { Editor } from './useEditor';
 import { fitBackground, normalizeAngle, type Color, type MapObject } from './model';
 import { NumberField, Palette, TextField } from './Fields';
 
-export default function Inspector({ editor, selectedId, color, setColor, backgroundMode, setBackgroundMode, importImage, duplicate, remove }: {
+export default function Inspector({ editor, selectedId, color, setColor, backgroundMode, setBackgroundMode, importImage, duplicate, remove, routePanel }: {
   editor: Editor; selectedId: string | null; color: Color; setColor: (value: Color) => void;
   backgroundMode: boolean; setBackgroundMode: (value: boolean) => void; importImage: () => void; duplicate: () => void; remove: () => void;
+  routePanel?: React.ReactNode;
 }) {
   const project = editor.project;
   const selected = project.objects.find(object => object.id === selectedId);
@@ -20,6 +21,7 @@ export default function Inspector({ editor, selectedId, color, setColor, backgro
   return <aside className="inspector">
     <div className="inspector-heading"><SlidersHorizontal size={17} /><h2>Параметры</h2><span>мм</span></div>
     <div className="inspector-scroll">
+      {routePanel}
       <section><h3><Map size={15} />Игровое поле</h3><div className="field-row">
         <NumberField label="Длина поля" value={project.board.width} positive onChange={width => editor.edit(p => ({ ...p, board: { ...p.board, width } }))} />
         <NumberField label="Ширина поля" value={project.board.height} positive onChange={height => editor.edit(p => ({ ...p, board: { ...p.board, height } }))} />

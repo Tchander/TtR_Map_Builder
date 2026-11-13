@@ -1,17 +1,17 @@
 import { useCallback, useRef, useState } from 'react';
-import { createProject, type ProjectV1 } from './model';
+import { createProject, type Project } from './model';
 import { commit, initialHistory, undo, redo, type History } from './history';
 
 export function useEditor() {
   const [history, setHistory] = useState(() => initialHistory(createProject()));
   const ref = useRef(history);
   const replace = useCallback((next: History) => { ref.current = next; setHistory(next); }, []);
-  const edit = useCallback((update: (project: ProjectV1) => ProjectV1) => {
+  const edit = useCallback((update: (project: Project) => Project) => {
     replace(commit(ref.current, update(ref.current.present)));
   }, [replace]);
-  const preview = useCallback((next: ProjectV1) => replace({ ...ref.current, present: next }), [replace]);
-  const finish = useCallback((before: ProjectV1) => replace(commit(ref.current, ref.current.present, before)), [replace]);
-  const reset = useCallback((next: ProjectV1) => replace(initialHistory(next)), [replace]);
+  const preview = useCallback((next: Project) => replace({ ...ref.current, present: next }), [replace]);
+  const finish = useCallback((before: Project) => replace(commit(ref.current, ref.current.present, before)), [replace]);
+  const reset = useCallback((next: Project) => replace(initialHistory(next)), [replace]);
   return {
     project: history.present, edit, preview, finish, reset,
     current: useCallback(() => ref.current.present, []),

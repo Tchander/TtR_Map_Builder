@@ -1,8 +1,8 @@
-import type { ProjectV1 } from './model';
+import type { Project } from './model';
 
-export interface History { past: ProjectV1[]; present: ProjectV1; future: ProjectV1[] }
-export const initialHistory = (present: ProjectV1): History => ({ past: [], present, future: [] });
-export function commit(history: History, present: ProjectV1, before = history.present): History {
+export interface History { past: Project[]; present: Project; future: Project[] }
+export const initialHistory = (present: Project): History => ({ past: [], present, future: [] });
+export function commit(history: History, present: Project, before = history.present): History {
   if (JSON.stringify(before) === JSON.stringify(present)) return { ...history, present: before };
   return { past: [...history.past, before].slice(-100), present, future: [] };
 }

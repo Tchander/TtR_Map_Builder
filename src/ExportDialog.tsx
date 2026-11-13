@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Download, FileImage, FileCode2, X } from 'lucide-react';
-import type { ProjectV1 } from './model';
+import type { Project } from './model';
 import { pngDimensions } from './png';
 
-export default function ExportDialog({ project, close, onExport }: { project: ProjectV1; close: () => void; onExport: (format: 'svg' | 'png', dpi: number, includeBackground: boolean) => void }) {
+export default function ExportDialog({ project, close, onExport }: { project: Project; close: () => void; onExport: (format: 'svg' | 'png', dpi: number, includeBackground: boolean) => void }) {
   const [format, setFormat] = useState<'svg' | 'png'>('svg');
   const [dpi, setDpi] = useState(300);
   const [includeBackground, setIncludeBackground] = useState(true);
