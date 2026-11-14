@@ -37,6 +37,18 @@ describe('project data', () => {
     expect(parseProject(p).objects[1]).toHaveProperty('angle', 270);
     expect(normalizeAngle(360)).toBe(0);
   });
+  it('loads a colored tunnel and normalizes a locomotive to gray in an external project', () => {
+    const p = example();
+    const wagon = p.objects[1];
+    const objects = [
+      { ...wagon, kind: 'locomotive', color: 'red' },
+      { ...wagon, id: 'second', kind: 'tunnel', color: 'black' },
+    ];
+    const restored = parseProject({ ...p, objects });
+    expect(restored.objects).toMatchObject([{ kind: 'locomotive', color: 'gray' }, { kind: 'tunnel', color: 'black' }]);
+    expect(parseProjectText(serializeProject(restored))).toEqual(restored);
+    expect(() => parseProject({ ...p, objects: [{ ...wagon, kind: 'invalid' }] })).toThrow();
+  });
 });
 describe('geometry and camera', () => {
   it('rotates around the center correctly', () => {

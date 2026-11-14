@@ -70,6 +70,13 @@ input, select { min-width: 0; color: #29333a; }
 .inspector-heading h2 { font-size: 13px; margin: 0; font-weight: 650; color: #39454e; }
 .inspector-heading > span { margin-left: auto; font-size: 10px; background: #f1f3f5; padding: 3px 6px; color: #8a949c; border-radius: 4px; }
 .inspector-scroll { overflow-y: auto; flex: 1; scrollbar-width: thin; scrollbar-color: #d9dfe3 transparent; }
+.inspector .map-summary { flex-shrink: 0; padding: 14px 18px; background: #fafbf9; }
+.map-counters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 5px; margin: 0; }
+.map-counters > div { min-width: 0; padding: 8px 5px; background: white; border: 1px solid #dfe6e2; border-radius: 8px; }
+.map-counters dt { display: flex; align-items: center; justify-content: center; gap: 3px; font-size: 11px; color: #52665d; }
+.map-counters dd { text-align: center; margin: 3px 0 1px; font-size: clamp(18px, 1.55vw, 25px); font-weight: 650; line-height: 1.2; font-variant-numeric: tabular-nums; color: #293f35; }
+.unfinished-count { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; font-size: 11px; color: #63716a; }
+.unfinished-count strong { min-width: 22px; padding: 2px 6px; border-radius: 4px; background: #eaf0ec; text-align: center; font-variant-numeric: tabular-nums; color: #344b3e; }
 .inspector section { padding: 19px 20px; border-bottom: 1px solid var(--line); }
 .inspector section h3 { margin: 0 0 14px; font-size: 12px; font-weight: 650; display: flex; align-items: center; gap: 8px; color: #4a5761; }
 .inspector section h3 > svg { color: #89969f; }
@@ -118,7 +125,6 @@ input, select { min-width: 0; color: #29333a; }
 .route-details { background: #f2f7f5; }
 .route-details .wide { margin-top: 12px; }
 .route-name { display: block; font-size: 12px; font-weight: 600; overflow-wrap: anywhere; margin-bottom: 5px; }
-.route-ports circle { cursor: crosshair; }
 .statusbar { height: 31px; flex-shrink: 0; background: #fff; border-top: 1px solid #dfe4e7; display: flex; align-items: center; gap: 25px; padding: 0 22px; color: #8d98a2; font-size: 10px; }
 .statusbar > div { display: flex; align-items: center; gap: 7px; }
 .status-indicator { width: 5px; height: 5px; border-radius: 50%; background: #8ca592; }

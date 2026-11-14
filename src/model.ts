@@ -3,12 +3,12 @@ import { z } from 'zod';
 export const PALETTE = [
   { id: 'gray', name: 'Серый', hex: '#9ca3af' },
   { id: 'white', name: 'Белый', hex: '#ffffff' },
-  { id: 'black', name: 'Чёрный', hex: '#292a30' },
+  { id: 'black', name: 'Чёрный', hex: '#38393f' },
   { id: 'pink', name: 'Розовый', hex: '#e58db5' },
-  { id: 'green', name: 'Зелёный', hex: '#63a765' },
+  { id: 'green', name: 'Зелёный', hex: '#71b073' },
   { id: 'blue', name: 'Синий', hex: '#4186c6' },
   { id: 'red', name: 'Красный', hex: '#d84f4f' },
-  { id: 'yellow', name: 'Жёлтый', hex: '#f0cb4f' },
+  { id: 'yellow', name: 'Жёлтый', hex: '#f3d362' },
   { id: 'orange', name: 'Оранжевый', hex: '#e89248' },
 ] as const;
 export type Color = typeof PALETTE[number]['id'];
@@ -17,7 +17,9 @@ const number = z.number().finite();
 const positive = number.positive();
 const base = { id: z.string().min(1).max(128), x: number, y: number };
 const citySchema = z.object({ ...base, type: z.literal('city'), name: z.string().max(120), labelOffset: z.object({ x: number, y: number }) });
-const wagonSchema = z.object({ ...base, type: z.literal('wagon'), angle: number, color: colorSchema });
+const wagonKindSchema = z.enum(['regular', 'locomotive', 'tunnel']);
+export type WagonKind = z.infer<typeof wagonKindSchema>;
+const wagonSchema = z.object({ ...base, type: z.literal('wagon'), kind: wagonKindSchema.optional(), angle: number, color: colorSchema });
 export const backgroundSchema = z.object({
   dataUrl: z.string().max(140_000_000).regex(/^data:image\/(png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/),
   name: z.string().max(255), pixelWidth: positive, pixelHeight: positive,
@@ -91,7 +93,12 @@ export function parseProject(input: unknown): Project {
     const issue = result.error.issues[0];
     throw new Error(`Некорректный проект: ${issue.path.join('.') || 'структура файла'}. ${issue.code === 'custom' ? issue.message : 'Проверьте размеры, объекты и подложку.'}`);
   }
-  return { ...result.data, objects: result.data.objects.map(object => object.type === 'wagon' ? { ...object, angle: normalizeAngle(object.angle) } : object) };
+  return { ...result.data, objects: result.data.objects.map(object => object.type === 'wagon'
+    ? { ...object, angle: normalizeAngle(object.angle), color: wagonColor(object.kind, object.color) }
+    : object) };
+}
+export function wagonColor(kind: WagonKind | undefined, color: Color): Color {
+  return kind === 'locomotive' ? 'gray' : color;
 }
 export function parseProjectText(text: string): Project {
   let input: unknown;
@@ -120,9 +127,9 @@ export function fitCamera(width: number, height: number, board: ProjectV1['board
   const safe = Math.max(0.0001, scale);
   return { x: (width - board.width * safe) / 2, y: (height - board.height * safe) / 2, scale: safe };
 }
-export function makeObject(type: 'city' | 'wagon', point: Point, color: Color = 'gray'): MapObject {
+export function makeObject(type: 'city' | 'wagon', point: Point, color: Color = 'gray', kind: WagonKind = 'regular'): MapObject {
   const base = { id: crypto.randomUUID(), ...point };
-  return type === 'city' ? { ...base, type, name: '', labelOffset: { x: 8, y: -7 } } : { ...base, type, angle: 0, color };
+  return type === 'city' ? { ...base, type, name: '', labelOffset: { x: 8, y: -7 } } : { ...base, type, kind, angle: 0, color: wagonColor(kind, color) };
 }
 export function fitBackground(asset: { dataUrl: string; name: string; pixelWidth: number; pixelHeight: number }, board: ProjectV1['board']): Background {
   const scale = Math.min(board.width / asset.pixelWidth, board.height / asset.pixelHeight);

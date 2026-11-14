@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { PALETTE, type Color } from './model';
+import { PALETTE, type Color, type WagonKind } from './model';
 
 export const formatNumber = (value: number, digits = 2) => Number(value.toFixed(digits)).toLocaleString('ru-RU', { maximumFractionDigits: digits, useGrouping: false });
 export function NumberField({ label, value, onChange, unit = 'мм', positive = false, min, max, disabled = false }: {
@@ -24,15 +24,24 @@ export function NumberField({ label, value, onChange, unit = 'мм', positive = 
     {invalid && <em>Введите допустимое число</em>}
   </label>;
 }
-export function TextField({ label, value, onChange, placeholder }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string }) {
+export function TextField({ label, value, onChange, placeholder, autoFocus }: { label: string; value: string; onChange: (value: string) => void; placeholder?: string; autoFocus?: boolean }) {
   const [text, setText] = useState(value);
   useEffect(() => setText(value), [value]);
-  return <label className="text-field"><span>{label}</span><input aria-label={label} value={text} maxLength={120} placeholder={placeholder}
+  return <label className="text-field"><span>{label}</span><input autoFocus={autoFocus} aria-label={label} value={text} maxLength={120} placeholder={placeholder}
     onChange={event => setText(event.target.value)} onBlur={() => { if (text !== value) onChange(text); }}
     onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); if (event.key === 'Escape') { setText(value); event.stopPropagation(); } }} /></label>;
 }
-export function Palette({ value, onChange }: { value: Color; onChange: (value: Color) => void }) {
+export function WagonKindField({ label, value, onChange }: { label: string; value: WagonKind; onChange: (value: WagonKind) => void }) {
+  return <label className="route-select">{label}
+    <select value={value} onChange={event => onChange(event.target.value as WagonKind)}>
+      <option value="regular">Обычный</option>
+      <option value="locomotive">Локомотив</option>
+      <option value="tunnel">Тоннель</option>
+    </select>
+  </label>;
+}
+export function Palette({ value, onChange, disabled = false }: { disabled?: boolean; value: Color; onChange: (value: Color) => void }) {
   return <div className="palette" role="group" aria-label="Цвет вагона">{PALETTE.map(color => <button key={color.id} type="button" title={color.name} aria-label={color.name}
-    aria-pressed={value === color.id} className={`swatch ${value === color.id ? 'chosen' : ''}`} onClick={() => onChange(color.id)}
+    disabled={disabled} aria-pressed={value === color.id} className={`swatch ${value === color.id ? 'chosen' : ''}`} onClick={() => onChange(color.id)}
     style={{ '--swatch': color.hex } as React.CSSProperties}><span /></button>)}</div>;
 }

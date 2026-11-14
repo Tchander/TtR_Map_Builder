@@ -10,7 +10,7 @@ const portable = process.argv.includes('--portable');
 const out = path.resolve(portable ? 'test-results/routes-portable' : 'test-results/routes');
 await mkdir(out, { recursive: true });
 const env = { ...process.env }; delete env.ELECTRON_RUN_AS_NODE;
-const app = portable ? await launchPortable(path.resolve('TtR Map Builder.exe'), env) : await electron.launch({ args: ['.'], env, timeout: 60_000 });
+const app = portable ? await launchPortable(path.resolve(process.env.TTR_PORTABLE_EXE ?? 'TtR Map Builder.exe'), env) : await electron.launch({ args: ['.'], env, timeout: 60_000 });
 const page = await app.firstWindow(); page.setDefaultTimeout(15_000);
 const errors = []; page.on('pageerror', error => errors.push(error.message));
 const file = path.join(out, 'Маршруты.ttrmap.json');
@@ -27,6 +27,15 @@ async function drag(ax, ay, bx, by) {
   await page.mouse.move(a.x, a.y); await page.mouse.down(); await page.mouse.move(b.x, b.y, { steps: 12 }); await page.mouse.up();
 }
 const lines = page.locator('[data-connection]');
+const selectedKind = page.getByLabel('Тип выбранного вагона');
+const wagonOnBoard = id => page.locator(`.map-objects [data-object-id="${id}"]`);
+async function expectPaintedKind(id, kind) {
+  const wagon = wagonOnBoard(id);
+  await expect(wagon.locator('rect')).toHaveCount(1);
+  await expect(wagon.locator(':scope > path')).toHaveCount(kind === 'tunnel' ? 1 : 0);
+  await expect(wagon.locator('circle')).toHaveCount(kind === 'locomotive' ? 3 : 0);
+  if (kind === 'locomotive') await expect(wagon.locator('rect')).toHaveAttribute('fill', '#9ca3af');
+}
 async function exportAs(format) {
   const target = path.join(out, `Маршруты.${format.toLowerCase()}`); await setSave(target);
   await page.getByRole('button', { name: 'Экспорт', exact: true }).click();
@@ -35,25 +44,78 @@ async function exportAs(format) {
   await expect(page.getByRole('alert')).toHaveCount(0); return target;
 }
 try {
-  await page.getByRole('button', { name: 'Город', exact: true }).click();
-  await click(100, 250); await field('Название города', 'Альфа');
-  await click(550, 250); await field('Название города', 'Бета');
-  await page.getByRole('button', { name: 'Вагон', exact: true }).click();
-  for (const x of [200, 320, 440]) await click(x, 250);
-  await page.getByRole('button', { name: 'Маршрут', exact: true }).click();
-  const cancelStart = await world(333, 250), cancelEnd = await world(427, 250);
-  await page.mouse.move(cancelStart.x, cancelStart.y); await page.mouse.down();
-  await page.mouse.move(cancelEnd.x, cancelEnd.y, { steps: 5 }); await page.keyboard.press('Escape'); await page.mouse.up();
-  await expect(lines).toHaveCount(0);
-  await drag(333, 250, 427, 250); await expect(lines).toHaveCount(1);
-  await drag(213, 250, 307, 250); await expect(lines).toHaveCount(2);
-  await drag(100, 250, 187, 250); await expect(lines).toHaveCount(3);
-  await drag(453, 250, 550, 250); await expect(lines).toHaveCount(4);
-  let project = await save(); assert.equal(project.version, 2); assert.equal(project.routes.length, 1); assert.equal(project.routes[0].wagons.length, 3);
-  const manualId = project.routes[0].id;
-  log('manual drag connections from middle wagons to both cities');
+  // Open a pre-kind map with both a free wagon and a wagon already in a route.
+  const legacyFile = path.join(out, 'Типы вагонов.ttrmap.json');
+  const legacy = JSON.parse(await readFile('examples/Маршруты.ttrmap.json', 'utf8'));
+  legacy.objects.push({ type: 'wagon', id: 'free', x: 320, y: 180, angle: 0, color: 'black' });
+  await writeFile(legacyFile, JSON.stringify(legacy));
+  await setOpen(legacyFile);
+  await page.getByRole('button', { name: 'Открыть', exact: true }).click(); await idle();
+  for (const id of ['free', 'blue-1']) {
+    const wagon = wagonOnBoard(id);
+    await page.locator('.inspector-scroll').evaluate(el => { el.scrollTop = el.scrollHeight; });
+    await wagon.click();
+    await expect(selectedKind).toBeInViewport({ ratio: 1 });
+    await expect(page.getByLabel('Тип нового вагона')).toHaveCount(0);
+    await expect(selectedKind).toHaveValue('regular');
+    await expectPaintedKind(id, 'regular');
+    const regularImage = await wagon.screenshot();
+    await selectedKind.selectOption('tunnel');
+    await expectPaintedKind(id, 'tunnel');
+    await expect(wagon.locator(':scope > path')).toHaveAttribute('fill', id === 'free' ? '#e4e5e1' : '#30363b');
+    const tunnelImage = await wagon.screenshot({ path: path.join(out, `tunnel-${id}.png`) });
+    assert.ok(!regularImage.equals(tunnelImage), 'Mountain pictogram is painted on the board');
+    await selectedKind.selectOption('locomotive');
+    await expectPaintedKind(id, 'locomotive');
+    assert.ok(!tunnelImage.equals(await wagon.screenshot()), 'Locomotive repaints the selected wagon');
+    await page.getByRole('button', { name: 'Отменить', exact: true }).click();
+    await expectPaintedKind(id, 'tunnel');
+    await page.getByRole('button', { name: 'Повторить', exact: true }).click();
+    await expectPaintedKind(id, 'locomotive');
+    await selectedKind.selectOption('regular');
+    await expectPaintedKind(id, 'regular');
+    await expectPaintedKind('blue-2', 'regular');
+  }
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click(); await idle();
+  assert.deepEqual(JSON.parse(await readFile(legacyFile, 'utf8')).routes, legacy.routes);
+  await page.getByRole('button', { name: 'Новый', exact: true }).click(); await idle();
+  log('existing free and routed wagon repaint immediately across all types, undo and redo');
 
-  await page.getByRole('button', { name: 'По дуге', exact: true }).click();
+  await page.getByRole('button', { name: 'Город', exact: true }).click();
+  const nameField = page.getByRole('textbox', { name: 'Название города' });
+  await click(100, 250);
+  await expect(nameField).toBeFocused();
+  await page.keyboard.insertText('Альфа');
+  await click(550, 250);
+  await expect(nameField).toBeFocused();
+  await expect(nameField).toHaveValue('');
+  await page.keyboard.insertText('Бета');
+  await page.keyboard.press('Enter');
+  const wagonCounter = page.getByTestId('wagon-count');
+  await expect(wagonCounter).toHaveText('0');
+  await page.getByRole('button', { name: 'Вагон', exact: true }).click();
+  await page.getByLabel('Тип нового вагона').selectOption('locomotive');
+  await click(320, 160);
+  await expect(selectedKind).toHaveValue('locomotive');
+  await expect(page.locator('.object-section').getByRole('button', { name: 'Синий', exact: true })).toBeDisabled();
+  await expect(wagonCounter).toHaveText('1');
+  await page.keyboard.press('Control+z');
+  await expect(wagonCounter).toHaveText('0');
+  await page.keyboard.press('r');
+  await expect(page.getByRole('button', {name: 'Соединить', exact: true})).toHaveCount(0);
+  await click(100, 250);
+  await click(550, 250);
+  await page.getByRole('button', { name: 'Создать маршрут', exact: true }).click();
+  await expect(wagonCounter).toHaveText('3');
+  await expect(lines).toHaveCount(4);
+  let project = await save();
+  assert.ok(project.objects.filter(o => o.type === 'wagon').every(w => (w.kind ?? 'regular') === 'regular'));
+  assert.equal(project.version, 2);
+  assert.deepEqual(project.objects.filter(o => o.type === 'city').map(o => o.name), ['Альфа', 'Бета']);
+  const straightId = project.routes[0].id;
+  log('city naming on consecutive clicks, free wagons and straight arc using the keyboard shortcut');
+
+  await page.getByRole('button', { name: 'Маршрут', exact: true }).click();
   await page.getByLabel('Начальный город', { exact: true }).selectOption({ label: 'Альфа' });
   await page.getByLabel('Конечный город', { exact: true }).selectOption({ label: 'Бета' });
   await expect(page.getByTestId('curve-control')).toBeVisible();
@@ -64,18 +126,33 @@ try {
   await page.screenshot({ path: path.join(out, '01-arc-preview.png') });
   await page.getByRole('button', { name: 'Создать маршрут', exact: true }).click();
   await expect(lines).toHaveCount(8); await expect(page.locator('.map-objects [data-object-id]')).toHaveCount(8);
-  project = await save(); const auto = project.routes.find(r => r.id !== manualId);
+  project = await save(); const auto = project.routes.find(r => r.id !== straightId);
   assert.equal(auto.wagons.length, 3);
   assert.ok(project.objects.find(o => o.id === auto.wagons[1].wagonId).y > 320);
   await expect(page.getByRole('button', { name: 'Создать параллельный', exact: true })).toBeDisabled();
   log('arc control, invalid count, automatic route, two-route limit');
 
-  await page.getByRole('button', { name: 'Вагон', exact: true }).click(); await click(325, 130);
+  await expect(wagonCounter).toHaveText('6');
   await page.getByRole('button', { name: 'Маршрут', exact: true }).click();
-  await drag(100, 250, 312, 130); await expect(lines).toHaveCount(9);
-  await drag(338, 130, 550, 250); await expect(page.getByRole('alert')).toContainText('максимум два');
-  await expect(lines).toHaveCount(9); await page.getByRole('button', { name: 'Скрыть уведомление' }).click();
-  log('third completion rejected while unfinished chain stays intact');
+  await click(550, 250); await click(100, 250);
+  await expect(page.getByRole('button', { name: 'Создать маршрут', exact: true })).toBeDisabled();
+  await expect(page.locator('.route-error')).toContainText('два маршрута');
+  await page.getByRole('button', { name: 'Отменить создание', exact: true }).click();
+  await expect(page.locator('.route-tools')).toHaveCount(0);
+
+  // Removing a city leaves an unfinished route in the project.
+  await page.getByRole('button', { name: 'Город', exact: true }).click();
+  await click(100, 120);
+  await nameField.press('Enter');
+  await page.getByRole('button', { name: 'Маршрут', exact: true }).click();
+  await click(100, 250); await click(100, 120);
+  await field('Вагонов в маршруте', 1);
+  await page.getByRole('button', { name: 'Создать маршрут', exact: true }).click();
+  await click(100, 120);
+  await page.keyboard.press('Delete');
+  await expect(wagonCounter).toHaveText('7');
+  await expect(lines).toHaveCount(9);
+  log('third arc rejected, cancel returns to selection, city removal retains unfinished route');
 
   await page.getByRole('button', { name: 'Выделение', exact: true }).click(); await click(320, 250);
   const originalTransform = await page.locator('.map-objects [data-object-id]').filter({ has: page.locator('rect') }).nth(1).getAttribute('transform');
@@ -85,7 +162,17 @@ try {
   await page.getByRole('button', { name: 'Отменить', exact: true }).click();
   await expect(page.locator('.map-objects [data-object-id]').filter({ has: page.locator('rect') }).nth(1)).toHaveAttribute('transform', originalTransform);
   await page.getByLabel('Показывать соединения', { exact: true }).uncheck(); await expect(lines).toHaveCount(5);
-  const saved = await save(); assert.equal(saved.routes.length, 3); assert.equal(saved.routes.find(r => r.id === manualId).showConnections, false);
+  const straightWagons = project.routes.find(r => r.id === straightId).wagons.map(item => project.objects.find(o => o.id === item.wagonId));
+  const [engine, tunnel] = straightWagons;
+  await click(engine.x, engine.y);
+  await selectedKind.selectOption('locomotive');
+  await click(tunnel.x, tunnel.y);
+  await selectedKind.selectOption('tunnel');
+  await page.locator('.route-details').getByRole('button', { name: 'Жёлтый', exact: true }).click();
+  const saved = await save(); assert.equal(saved.routes.length, 3); assert.equal(saved.routes.find(r => r.id === straightId).showConnections, false);
+  assert.equal(saved.objects.find(o => o.id === engine.id).color, 'gray');
+  assert.equal(saved.objects.find(o => o.id === tunnel.id).color, 'yellow');
+  assert.deepEqual(saved.routes.find(r => r.id === straightId).wagons.map(item => saved.objects.find(o => o.id === item.wagonId).kind ?? 'regular'), ['locomotive', 'tunnel', 'regular']);
   await page.getByRole('button', { name: 'Новый', exact: true }).click(); await idle();
   await setOpen(file); await page.getByRole('button', { name: 'Открыть', exact: true }).click(); await idle();
   await expect(lines).toHaveCount(5); assert.deepEqual(await save(), saved);
@@ -115,7 +202,17 @@ try {
     return [...png.data.subarray(at, at + 3)];
   };
   for (const [x1, y1, x2, y2] of coordinates.exported) assert.ok(pixel((x1 + x2) / 2, (y1 + y2) / 2).every(c => c < 180), 'Visible connector must appear in PNG');
-  assert.deepEqual(pixel(260, 250), [255, 255, 255], 'Hidden manual connector must be absent in PNG');
+  assert.deepEqual(pixel(260, 250), [255, 255, 255], 'Hidden straight connector must be absent in PNG');
+  const mountainPath = await wagonOnBoard(tunnel.id).locator(':scope > path').getAttribute('d');
+  assert.ok(svg.includes(`d="${mountainPath}"`), 'Exported SVG uses the mountain silhouette displayed on the board');
+  assert.ok(pixel(engine.x, engine.y + .55).every(v => v < 90), 'Locomotive pictogram printed in PNG');
+  const routeColor = [243, 211, 98];
+  assert.deepEqual(pixel(tunnel.x, tunnel.y + 1.8), routeColor, 'The portal opening shows the wagon color');
+  assert.deepEqual(pixel(tunnel.x + 10, tunnel.y), routeColor, 'Wagon color surrounds the mountain');
+  for (const [dx, dy] of [[-3, -2], [1.7, -2.5], [-3, 1.8], [3, 1.8]]) {
+    const rgb = pixel(tunnel.x + dx, tunnel.y + dy);
+    assert.ok(rgb.every((value, i) => Math.abs(value - [103, 98, 70][i]) <= 2), 'Both peaks and sides of the portal appear in PNG');
+  }
   await page.screenshot({ path: path.join(out, '02-complete-routes.png') });
   log('SVG and 300 DPI PNG include only visible connectors');
 
@@ -131,10 +228,12 @@ try {
   await page.screenshot({ path: path.join(out, '03-parallel-preview.png') });
   await page.getByRole('button', { name: 'Создать маршрут', exact: true }).click(); await expect(lines).toHaveCount(5);
   const final = await save();
-  const parallel = final.routes.find(r => r.id !== manualId && r.startCityId && r.endCityId);
+  const parallel = final.routes.find(r => r.id !== straightId && r.startCityId && r.endCityId);
   assert.equal(parallel.wagons.length, 3);
+  assert.ok(parallel.wagons.every(item => (final.objects.find(o => o.id === item.wagonId).kind ?? 'regular') === 'regular'));
   assert.ok(Math.abs(final.objects.find(o => o.id === parallel.wagons[1].wagonId).y - 263) < .01);
   await page.keyboard.press('Control+d'); const duplicated = await save();
+  await expect(wagonCounter).toHaveText(String(duplicated.objects.filter(o => o.type === 'wagon').length));
   assert.equal(duplicated.routes.length, final.routes.length); assert.equal(duplicated.objects.length, final.objects.length + 1);
   log('delete connection, undo, dismantle, parallel preview, free duplicate');
   assert.deepEqual(errors, []);
