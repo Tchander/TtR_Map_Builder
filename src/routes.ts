@@ -188,7 +188,7 @@ export function generateParallel(p: Project, sourceId: string, gap: number, side
   const wagons = originals.map((w, i) => {
     const forward = w.angle + (source.wagons[i].entry === 'plus' ? 180 : 0);
     const offset = rotate({ x: 0, y: side * (p.sizes.wagonWidth + gap) }, forward);
-    return { ...w, kind: 'regular' as const, id: `preview-wagon-${i}`, x: w.x + offset.x, y: w.y + offset.y, color };
+    return { type: w.type, kind: 'regular' as const, id: `preview-wagon-${i}`, x: w.x + offset.x, y: w.y + offset.y, angle: w.angle, color };
   });
   validateLayout(p, wagons, endpoints, originals);
   return { wagons, route: { ...source, id: 'preview-route', wagons: source.wagons.map((item, i) => ({ ...item, wagonId: wagons[i].id })), showConnections: true } };

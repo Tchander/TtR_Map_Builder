@@ -6,7 +6,7 @@ function wagonDecoration(wagon: Wagon, width: number, height: number): string {
   if (wagon.kind === 'locomotive') {
     // A side-on steam engine with a cab window, chimney, cowcatcher and drive wheels.
     const scale = Math.min(width / 31, height / 17);
-    return `<g transform="scale(${scale})" fill="#242831">
+    return `<g transform="scale(${wagon.locomotiveFlipped ? -scale : scale} ${scale})" fill="#242831">
       <path fill-rule="evenodd" d="M-13-6H-3V-4H-4V-1H0V-3H3V-1H6V-5H5V-6H10V-5H9V0Q11 0 11 2V3L14 5H-13V3H-12V-4H-13ZM-10-4V-1H-7V-4Z"/>
       <path d="M5-8Q6-10 8-9Q10-11 12-10Q14-9 15-10Q13-7 10-8Q8-7 5-8Z" transform="translate(-1 1.7) scale(.8)"/>
       <circle cx="-9" cy="4" r="2.9"/><circle cx="-2" cy="4" r="2.9"/><circle cx="5" cy="4" r="2.9"/>
@@ -32,7 +32,9 @@ export function objectMarkup(object: MapObject, sizes: Project['sizes'], interac
     return `<g${id} transform="translate(${object.x} ${object.y}) rotate(${object.angle})"><rect x="${-width / 2}" y="${-height / 2}" width="${width}" height="${height}" rx="${radius}" fill="${fill}" stroke="#34383e" stroke-width="${stroke}"/>${wagonDecoration(object, width, height)}</g>`;
   }
   const stroke = Math.min(0.5, sizes.cityDiameter / 5);
-  const label = object.name ? `<text${interactive ? ' data-part="label"' : ''} x="${object.labelOffset.x}" y="${object.labelOffset.y}" font-family="Arial, sans-serif" font-size="3.5" font-weight="600" fill="#293440" stroke="white" stroke-width="0.9" stroke-linejoin="round" paint-order="stroke fill">${xml(object.name)}</text>` : '';
+  const fontSize = sizes.cityLabelFontSize;
+  const labelStroke = fontSize * (2.8 / 19.5); // Halo-to-type ratio from the Georgia specimen.
+  const label = object.name ? `<text${interactive ? ' data-part="label"' : ''} x="${object.labelOffset.x}" y="${object.labelOffset.y}" font-family="Georgia, serif" font-size="${fontSize}" font-weight="700" fill="#503b34" stroke="#fff7e5" stroke-width="${labelStroke}" stroke-linejoin="round" paint-order="stroke fill">${xml(object.name)}</text>` : '';
   return `<g${id} transform="translate(${object.x} ${object.y})"><circle r="${(sizes.cityDiameter - stroke) / 2}" fill="white" stroke="#34383e" stroke-width="${stroke}"/>${label}</g>`;
 }
 export function backgroundMarkup(project: Project): string {

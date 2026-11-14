@@ -28,6 +28,7 @@ async function drag(ax, ay, bx, by) {
 }
 const lines = page.locator('[data-connection]');
 const selectedKind = page.getByLabel('Тип выбранного вагона');
+const flipIcon = page.getByRole('button', { name: 'Развернуть значок', exact: true });
 const wagonOnBoard = id => page.locator(`.map-objects [data-object-id="${id}"]`);
 async function expectPaintedKind(id, kind) {
   const wagon = wagonOnBoard(id);
@@ -47,7 +48,7 @@ try {
   // Open a pre-kind map with both a free wagon and a wagon already in a route.
   const legacyFile = path.join(out, 'Типы вагонов.ttrmap.json');
   const legacy = JSON.parse(await readFile('examples/Маршруты.ttrmap.json', 'utf8'));
-  legacy.objects.push({ type: 'wagon', id: 'free', x: 320, y: 180, angle: 0, color: 'black' });
+  legacy.objects.push({ type: 'wagon', id: 'free', x: 320, y: 180, angle: 37, color: 'black' });
   await writeFile(legacyFile, JSON.stringify(legacy));
   await setOpen(legacyFile);
   await page.getByRole('button', { name: 'Открыть', exact: true }).click(); await idle();
@@ -61,6 +62,7 @@ try {
     await expectPaintedKind(id, 'regular');
     const regularImage = await wagon.screenshot();
     await selectedKind.selectOption('tunnel');
+    await expect(flipIcon).toHaveCount(0);
     await expectPaintedKind(id, 'tunnel');
     await expect(wagon.locator(':scope > path')).toHaveAttribute('fill', id === 'free' ? '#e4e5e1' : '#30363b');
     const tunnelImage = await wagon.screenshot({ path: path.join(out, `tunnel-${id}.png`) });
@@ -72,7 +74,23 @@ try {
     await expectPaintedKind(id, 'tunnel');
     await page.getByRole('button', { name: 'Повторить', exact: true }).click();
     await expectPaintedKind(id, 'locomotive');
+    const pose = await wagon.getAttribute('transform');
+    const icon = wagon.locator(':scope > g');
+    const initialDirection = await icon.getAttribute('transform');
+    const initialImage = await wagon.screenshot();
+    await expect(flipIcon).toHaveAttribute('aria-pressed', 'false');
+    await flipIcon.click();
+    await expect(icon).toHaveAttribute('transform', /^scale\(-/);
+    await expect(wagon).toHaveAttribute('transform', pose);
+    assert.ok(!initialImage.equals(await wagon.screenshot()), 'Only the locomotive pictogram flips at the current wagon angle');
+    await page.getByRole('button', { name: 'Отменить', exact: true }).click();
+    await expect(icon).toHaveAttribute('transform', initialDirection);
+    await page.getByRole('button', { name: 'Повторить', exact: true }).click();
+    await expect(flipIcon).toHaveAttribute('aria-pressed', 'true');
+    await flipIcon.click();
+    await expect(icon).toHaveAttribute('transform', initialDirection);
     await selectedKind.selectOption('regular');
+    await expect(flipIcon).toHaveCount(0);
     await expectPaintedKind(id, 'regular');
     await expectPaintedKind('blue-2', 'regular');
   }
@@ -166,16 +184,20 @@ try {
   const [engine, tunnel] = straightWagons;
   await click(engine.x, engine.y);
   await selectedKind.selectOption('locomotive');
+  await flipIcon.click();
   await click(tunnel.x, tunnel.y);
   await selectedKind.selectOption('tunnel');
   await page.locator('.route-details').getByRole('button', { name: 'Жёлтый', exact: true }).click();
   const saved = await save(); assert.equal(saved.routes.length, 3); assert.equal(saved.routes.find(r => r.id === straightId).showConnections, false);
   assert.equal(saved.objects.find(o => o.id === engine.id).color, 'gray');
+  assert.equal(saved.objects.find(o => o.id === engine.id).locomotiveFlipped, true);
   assert.equal(saved.objects.find(o => o.id === tunnel.id).color, 'yellow');
   assert.deepEqual(saved.routes.find(r => r.id === straightId).wagons.map(item => saved.objects.find(o => o.id === item.wagonId).kind ?? 'regular'), ['locomotive', 'tunnel', 'regular']);
   await page.getByRole('button', { name: 'Новый', exact: true }).click(); await idle();
   await setOpen(file); await page.getByRole('button', { name: 'Открыть', exact: true }).click(); await idle();
   await expect(lines).toHaveCount(5); assert.deepEqual(await save(), saved);
+  const engineIcon = wagonOnBoard(engine.id).locator(':scope > g');
+  await expect(engineIcon).toHaveAttribute('transform', /^scale\(-/);
   log('individual rotation, undo, hidden route and incomplete route round-trip');
 
   const invalid = path.join(out, 'invalid-route.ttrmap.json');
@@ -205,7 +227,9 @@ try {
   assert.deepEqual(pixel(260, 250), [255, 255, 255], 'Hidden straight connector must be absent in PNG');
   const mountainPath = await wagonOnBoard(tunnel.id).locator(':scope > path').getAttribute('d');
   assert.ok(svg.includes(`d="${mountainPath}"`), 'Exported SVG uses the mountain silhouette displayed on the board');
-  assert.ok(pixel(engine.x, engine.y + .55).every(v => v < 90), 'Locomotive pictogram printed in PNG');
+  assert.ok(svg.includes(`transform="${await engineIcon.getAttribute('transform')}"`), 'SVG preserves the reflected locomotive');
+  assert.deepEqual(pixel(engine.x + 5.7, engine.y - 1.5), [36, 40, 49], 'Mirrored cab is painted on the opposite side in PNG');
+  assert.deepEqual(pixel(engine.x - 5.7, engine.y - 1.5), [156, 163, 175], 'Old cab position shows the gray wagon body');
   const routeColor = [243, 211, 98];
   assert.deepEqual(pixel(tunnel.x, tunnel.y + 1.8), routeColor, 'The portal opening shows the wagon color');
   assert.deepEqual(pixel(tunnel.x + 10, tunnel.y), routeColor, 'Wagon color surrounds the mountain');

@@ -2,15 +2,22 @@ import { useEffect, useState } from 'react';
 import { PALETTE, type Color, type WagonKind } from './model';
 
 export const formatNumber = (value: number, digits = 2) => Number(value.toFixed(digits)).toLocaleString('ru-RU', { maximumFractionDigits: digits, useGrouping: false });
-export function NumberField({ label, value, onChange, unit = 'мм', positive = false, min, max, disabled = false }: {
-  label: string; value: number; onChange: (value: number) => void; unit?: string; positive?: boolean; min?: number; max?: number; disabled?: boolean;
+export function NumberField({ label, value, onChange, onPreview, unit = 'мм', positive = false, min, max, disabled = false }: {
+  label: string; value: number; onChange: (value: number) => void; onPreview?: (value: number | undefined) => void;
+  unit?: string; positive?: boolean; min?: number; max?: number; disabled?: boolean;
 }) {
   const [text, setText] = useState(formatNumber(value, 4));
   const [invalid, setInvalid] = useState(false);
   useEffect(() => { setText(formatNumber(value, 4)); setInvalid(false); }, [value]);
+  function parse(input: string) {
+    const parsed = Number(input.trim().replace(',', '.'));
+    if (!input.trim() || !Number.isFinite(parsed) || (positive && parsed <= 0) || (min !== undefined && parsed < min) || (max !== undefined && parsed > max)) return undefined;
+    return parsed;
+  }
   function apply() {
-    const parsed = Number(text.trim().replace(',', '.'));
-    if (!text.trim() || !Number.isFinite(parsed) || (positive && parsed <= 0) || (min !== undefined && parsed < min) || (max !== undefined && parsed > max)) {
+    const parsed = parse(text);
+    onPreview?.(undefined);
+    if (parsed === undefined) {
       setText(formatNumber(value, 4)); setInvalid(true); return;
     }
     setInvalid(false);
@@ -19,8 +26,8 @@ export function NumberField({ label, value, onChange, unit = 'мм', positive = 
   }
   return <label className={`number-field ${invalid ? 'invalid' : ''}`}>
     <span>{label}</span><div><input aria-label={label} type="text" inputMode="decimal" value={text} disabled={disabled} aria-invalid={invalid}
-      onChange={event => { setText(event.target.value); setInvalid(false); }} onBlur={apply}
-      onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); if (event.key === 'Escape') { setText(formatNumber(value, 4)); setInvalid(false); event.stopPropagation(); } }} /><small>{unit}</small></div>
+      onChange={event => { setText(event.target.value); setInvalid(false); onPreview?.(parse(event.target.value)); }} onBlur={apply}
+      onKeyDown={event => { if (event.key === 'Enter') event.currentTarget.blur(); if (event.key === 'Escape') { setText(formatNumber(value, 4)); setInvalid(false); onPreview?.(undefined); event.stopPropagation(); } }} /><small>{unit}</small></div>
     {invalid && <em>Введите допустимое число</em>}
   </label>;
 }

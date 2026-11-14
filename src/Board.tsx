@@ -13,8 +13,9 @@ interface Drag {
   start: Point; camera: Camera; before: Project; id?: string; startAngle?: number;
   control?: Point;
 }
-export default function Board({ editor, tool, color, wagonKind, selectedId, onSelect, backgroundMode, fitToken, onCursor, selectedLink, onSelectLink, onPickCity, control, onControl, curve, preview }: {
+export default function Board({ editor, displaySizes, tool, color, wagonKind, selectedId, onSelect, backgroundMode, fitToken, onCursor, selectedLink, onSelectLink, onPickCity, control, onControl, curve, preview }: {
   editor: Editor; tool: Tool; color: Color; wagonKind: WagonKind; selectedId: string | null; onSelect: (id: string | null) => void;
+  displaySizes: Project['sizes'];
   backgroundMode: boolean; fitToken: number; onCursor: (point: Point | null) => void;
   selectedLink: LinkSelection | null; onSelectLink: (link: LinkSelection) => void;
   onPickCity: (id: string) => void;
@@ -32,10 +33,10 @@ export default function Board({ editor, tool, color, wagonKind, selectedId, onSe
   const project = editor.project;
   const projectRef = useRef(project); projectRef.current = project;
   const selected = project.objects.find(object => object.id === selectedId);
-  const objectsSvg = useMemo(() => sceneMarkup(project, true), [project.objects, project.sizes]);
+  const objectsSvg = useMemo(() => sceneMarkup({ ...project, sizes: displaySizes }, true), [project.objects, displaySizes]);
   const bgSvg = useMemo(() => backgroundMarkup(project), [project.background]);
   const connections = useMemo(() => allConnections(project), [project.routes]);
-  const previewProject = preview ? { ...project, objects: [...project.objects, ...preview.wagons], routes: [preview.route] } : null;
+  const previewProject = preview ? { ...project, sizes: displaySizes, objects: [...project.objects, ...preview.wagons], routes: [preview.route] } : null;
   useEffect(() => {
     function cancel(event: KeyboardEvent) {
       if (event.code !== 'Escape' || !drag.current) return;

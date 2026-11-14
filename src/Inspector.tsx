@@ -1,14 +1,15 @@
-import { Circle, Copy, GitBranch, ImagePlus, Map, RectangleHorizontal, SlidersHorizontal, Trash2, X, Move, Scan } from 'lucide-react';
+import { Circle, Copy, FlipHorizontal2, GitBranch, ImagePlus, Map, RectangleHorizontal, SlidersHorizontal, Trash2, X, Move, Scan } from 'lucide-react';
 import type { Editor } from './useEditor';
 import type { Tool } from './Board';
 import { fitBackground, normalizeAngle, wagonColor, type WagonKind, type Color, type MapObject } from './model';
 import { NumberField, Palette, TextField, WagonKindField } from './Fields';
 import { complete } from './routes';
 
-export default function Inspector({ editor, tool, selectedId, color, setColor, wagonKind, setWagonKind, backgroundMode, setBackgroundMode, importImage, duplicate, remove, routePanel }: {
+export default function Inspector({ editor, tool, selectedId, color, setColor, wagonKind, setWagonKind, onLabelSizePreview, backgroundMode, setBackgroundMode, importImage, duplicate, remove, routePanel }: {
   editor: Editor; tool: Tool; selectedId: string | null; color: Color; setColor: (value: Color) => void;
   backgroundMode: boolean; setBackgroundMode: (value: boolean) => void; importImage: () => void; duplicate: () => void; remove: () => void;
   wagonKind: WagonKind; setWagonKind: (value: WagonKind) => void;
+  onLabelSizePreview: (size: number | undefined) => void;
   routePanel?: React.ReactNode;
 }) {
   const project = editor.project;
@@ -47,6 +48,12 @@ export default function Inspector({ editor, tool, selectedId, color, setColor, w
         {selected.type === 'wagon' && <>
           <WagonKindField label="Тип выбранного вагона" value={selected.kind ?? 'regular'}
             onChange={kind => changeObject(o => o.type === 'wagon' ? { ...o, kind, color: wagonColor(kind, o.color) } : o)} />
+          {selected.kind === 'locomotive' && <button type="button"
+            className={`outline-button wide ${selected.locomotiveFlipped ? 'active' : ''}`}
+            aria-pressed={selected.locomotiveFlipped ?? false}
+            onClick={() => changeObject(o => o.type === 'wagon' ? { ...o, locomotiveFlipped: !o.locomotiveFlipped } : o)}>
+            <FlipHorizontal2 size={16} />Развернуть значок
+          </button>}
           <label className="small-label">Цвет выбранного вагона</label>
           <Palette value={selected.color} disabled={selected.kind === 'locomotive'} onChange={color => changeObject(o => o.type === 'wagon' ? { ...o, color } : o)} />
         </>}
@@ -67,7 +74,11 @@ export default function Inspector({ editor, tool, selectedId, color, setColor, w
         <NumberField label="Длина вагона" value={project.sizes.wagonLength} positive onChange={wagonLength => editor.edit(p => ({ ...p, sizes: { ...p.sizes, wagonLength } }))} />
         <NumberField label="Ширина вагона" value={project.sizes.wagonWidth} positive onChange={wagonWidth => editor.edit(p => ({ ...p, sizes: { ...p.sizes, wagonWidth } }))} />
       </div></section>
-      <section><h3><Circle size={15} />Города</h3><NumberField label="Диаметр города" value={project.sizes.cityDiameter} positive onChange={cityDiameter => editor.edit(p => ({ ...p, sizes: { ...p.sizes, cityDiameter } }))} /><p className="field-hint">Размеры применяются ко всем объектам</p></section>
+      <section><h3><Circle size={15} />Города</h3>
+        <NumberField label="Диаметр города" value={project.sizes.cityDiameter} positive onChange={cityDiameter => editor.edit(p => ({ ...p, sizes: { ...p.sizes, cityDiameter } }))} />
+        <NumberField label="Общий размер шрифта городов" value={project.sizes.cityLabelFontSize} positive onPreview={onLabelSizePreview}
+          onChange={cityLabelFontSize => editor.edit(p => ({ ...p, sizes: { ...p.sizes, cityLabelFontSize } }))} />
+      </section>
       <section className="background-section"><h3><ImagePlus size={15} />Подложка</h3>
         {!bg ? <><p className="field-hint">Добавьте свою карту или иллюстрацию под игровое поле.</p><button className="outline-button wide" onClick={importImage}><ImagePlus size={16} />Загрузить PNG / JPEG</button></>
           : <><div className="background-file"><ImagePlus size={16} /><span title={bg.name}>{bg.name}</span><button title="Удалить подложку" aria-label="Удалить подложку" onClick={() => { editor.edit(p => ({ ...p, background: null })); setBackgroundMode(false); }}><X size={15} /></button></div>

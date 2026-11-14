@@ -15,11 +15,18 @@ export type Color = typeof PALETTE[number]['id'];
 const colorSchema = z.enum(['gray', 'white', 'black', 'pink', 'green', 'blue', 'red', 'yellow', 'orange']);
 const number = z.number().finite();
 const positive = number.positive();
+export const DEFAULT_CITY_LABEL_SIZE = 3.5;
 const base = { id: z.string().min(1).max(128), x: number, y: number };
-const citySchema = z.object({ ...base, type: z.literal('city'), name: z.string().max(120), labelOffset: z.object({ x: number, y: number }) });
+const citySchema = z.object({
+  ...base, type: z.literal('city'), name: z.string().max(120),
+  labelOffset: z.object({ x: number, y: number }),
+});
 const wagonKindSchema = z.enum(['regular', 'locomotive', 'tunnel']);
 export type WagonKind = z.infer<typeof wagonKindSchema>;
-const wagonSchema = z.object({ ...base, type: z.literal('wagon'), kind: wagonKindSchema.optional(), angle: number, color: colorSchema });
+const wagonSchema = z.object({
+  ...base, type: z.literal('wagon'), kind: wagonKindSchema.optional(), angle: number, color: colorSchema,
+  locomotiveFlipped: z.boolean().optional(),
+});
 export const backgroundSchema = z.object({
   dataUrl: z.string().max(140_000_000).regex(/^data:image\/(png|jpeg);base64,[A-Za-z0-9+/]+={0,2}$/),
   name: z.string().max(255), pixelWidth: positive, pixelHeight: positive,
@@ -29,7 +36,7 @@ export const backgroundSchema = z.object({
 const projectFields = {
   format: z.literal('ttr-map'),
   board: z.object({ width: positive, height: positive }),
-  sizes: z.object({ wagonLength: positive, wagonWidth: positive, cityDiameter: positive }),
+  sizes: z.object({ wagonLength: positive, wagonWidth: positive, cityDiameter: positive, cityLabelFontSize: positive.default(DEFAULT_CITY_LABEL_SIZE) }),
   objects: z.array(z.discriminatedUnion('type', [citySchema, wagonSchema])).max(20_000),
   background: backgroundSchema.nullable(),
 };
@@ -78,7 +85,7 @@ export type ProjectV2 = z.infer<typeof projectSchema>;
 export type Project = ProjectV2;
 
 export function createProject(): Project {
-  return { format: 'ttr-map', version: 2, board: { width: 785, height: 525 }, sizes: { wagonLength: 26, wagonWidth: 9, cityDiameter: 10 }, objects: [], background: null, routes: [] };
+  return { format: 'ttr-map', version: 2, board: { width: 785, height: 525 }, sizes: { wagonLength: 26, wagonWidth: 9, cityDiameter: 10, cityLabelFontSize: DEFAULT_CITY_LABEL_SIZE }, objects: [], background: null, routes: [] };
 }
 export function parseProject(input: unknown): Project {
   if (typeof input === 'object' && input !== null && 'version' in input) {

@@ -15,6 +15,18 @@ describe('project data', () => {
   it('has the requested physical defaults', () => {
     expect(createProject()).toMatchObject({ board: { width: 785, height: 525 }, sizes: { wagonLength: 26, wagonWidth: 9, cityDiameter: 10 }, objects: [], background: null });
   });
+  it.each([1, 2])('uses the original label size when opening an older v%s map', version => {
+    const map = { ...example(), version, sizes: { wagonLength: 26, wagonWidth: 9, cityDiameter: 10 } };
+    const restored = parseProject(map);
+    expect(restored.sizes.cityLabelFontSize).toBe(3.5);
+    expect(exportSvg(restored)).toContain('font-size="3.5"');
+    expect(() => parseProject({ ...map, sizes: { ...map.sizes, cityLabelFontSize: 0 } })).toThrow();
+    const legacy = parseProject({ ...map, sizes: { ...map.sizes, cityLabelFontSize: 4.5 }, objects: [
+      { ...map.objects[0], labelFontSize: 8 }, { ...map.objects[0], id: 'city-2', labelFontSize: 2 },
+    ] });
+    expect(exportSvg(legacy).match(/font-size="4\.5"/g)).toHaveLength(2);
+    expect(serializeProject(legacy)).not.toContain('"labelFontSize"');
+  });
   it('round-trips Cyrillic, fractional positions, rotations and an embedded background', () => {
     const p = example();
     const image = PNG.sync.write(new PNG({ width: 4, height: 3 }));

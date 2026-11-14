@@ -2,7 +2,7 @@ import { _electron as electron } from 'playwright';
 import { expect } from 'playwright/test';
 import { PNG } from 'pngjs';
 import assert from 'node:assert/strict';
-import { mkdir, readFile, writeFile, copyFile } from 'node:fs/promises';
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { launchPortable } from './portable-driver.mjs';
 
@@ -68,6 +68,42 @@ try {
   assert.notEqual(await page.getByRole('textbox', { name: 'Смещение подписи X', exact: true }).inputValue(), '8');
   log('city creation, Cyrillic labels, dragging cities and labels');
 
+  const moscowLabel = page.locator('[data-part="label"]').filter({ hasText: 'Москва' });
+  await expect(moscowLabel).toHaveAttribute('font-size', '3.5');
+  await expect(moscowLabel).toHaveCSS('font-family', 'Georgia, serif');
+  await expect(moscowLabel).toHaveCSS('font-weight', '700');
+  await expect(moscowLabel).toHaveCSS('fill', 'rgb(80, 59, 52)');
+  await expect(moscowLabel).toHaveCSS('stroke', 'rgb(255, 247, 229)');
+  const fontSize = page.getByRole('textbox', { name: 'Общий размер шрифта городов', exact: true });
+  await expect(page.getByRole('textbox', { name: 'Размер шрифта этого города' })).toHaveCount(0);
+  async function expectLabelSize(size) {
+    await expect(moscowLabel).toHaveAttribute('font-size', size);
+    await expect(label).toHaveAttribute('font-size', size);
+  }
+  await fontSize.fill('4,');
+  await fontSize.pressSequentially('25');
+  await expect(fontSize).toBeFocused();
+  await expectLabelSize('4.25');
+  await fontSize.press('Enter');
+  await page.getByRole('button', { name: 'Отменить', exact: true }).click();
+  await expectLabelSize('3.5');
+  await page.getByRole('button', { name: 'Повторить', exact: true }).click();
+  await expectLabelSize('4.25');
+  await fontSize.fill('6,5');
+  await expectLabelSize('6.5');
+  await fontSize.press('Escape');
+  await expectLabelSize('4.25');
+  await fontSize.fill('0');
+  await fontSize.press('Enter');
+  await expectLabelSize('4.25');
+  await field('Общий размер шрифта городов', 5);
+  await expectLabelSize('5');
+  await page.getByRole('button', { name: 'Город', exact: true }).click();
+  await clickWorld(300, 135); await field('Название города', 'Казань');
+  await expect(page.locator('[data-part="label"]').filter({ hasText: 'Казань' })).toHaveAttribute('font-size', '5');
+  await page.getByRole('button', { name: 'Удалить объект', exact: true }).click();
+  log('global city label size redraws existing cities while typing, applies to new cities, and supports undo');
+
   const colors = ['Серый', 'Белый', 'Чёрный', 'Розовый', 'Зелёный', 'Синий', 'Красный', 'Жёлтый', 'Оранжевый'];
   await page.getByRole('button', { name: 'Вагон', exact: true }).click();
   for (let i = 0; i < colors.length; i++) {
@@ -119,11 +155,21 @@ try {
   await page.mouse.move(bgStart.x, bgStart.y); await page.mouse.down(); await page.mouse.move(bgEnd.x, bgEnd.y, { steps: 5 }); await page.mouse.up();
   await page.getByRole('button', { name: 'Завершить перемещение', exact: true }).click();
   const beforeSave = await readProject();
+  assert.equal(beforeSave.sizes.cityLabelFontSize, 5);
+  assert.ok(beforeSave.objects.filter(o => o.type === 'city').every(o => !Object.hasOwn(o, 'labelFontSize')));
   assert.equal(beforeSave.background.opacity, .65); assert.ok(beforeSave.background.dataUrl.startsWith('data:image/png;base64,'));
-  const copied = path.join(out, 'Перенесённый проект.ttrmap.json'); await copyFile(projectFile, copied);
+  const copied = path.join(out, 'Перенесённый проект.ttrmap.json');
+  const legacy = structuredClone(beforeSave);
+  legacy.objects.find(o => o.name === 'Санкт-Петербург').labelFontSize = 9;
+  await writeFile(copied, JSON.stringify(legacy));
   await page.getByRole('button', { name: 'Новый', exact: true }).click(); await idle(); assert.equal(await page.locator('[data-object-id]').count(), 0);
   await setOpen(copied); await page.getByRole('button', { name: 'Открыть', exact: true }).click(); await idle();
   assert.equal(await page.locator('[data-object-id]').count(), 11);
+  await expectLabelSize('5');
+  await fontSize.fill('7');
+  await expectLabelSize('7');
+  await fontSize.press('Escape');
+  await expectLabelSize('5');
   // Save uses the reopened path, not the mocked Save As path.
   await page.getByRole('button', { name: 'Сохранить', exact: true }).click(); await idle();
   const restored = JSON.parse(await readFile(copied, 'utf8')); assert.deepEqual(restored, beforeSave);
@@ -131,6 +177,9 @@ try {
 
   await exportAs('svg', svgFile);
   const svg = await readFile(svgFile, 'utf8'); assert.match(svg, /width="785mm"/); assert.ok(svg.includes('Санкт-Петербург')); assert.ok(svg.includes('data:image/png;base64,')); assert.ok(!svg.includes('data-object-id'));
+  assert.match(svg, /<text [^>]*font-size="5"[^>]*>Москва<\/text>/);
+  assert.match(svg, /<text [^>]*font-size="5"[^>]*>Санкт-Петербург<\/text>/);
+  assert.match(svg, /<text [^>]*font-family="Georgia, serif"[^>]*font-weight="700" fill="#503b34" stroke="#fff7e5"/);
   await exportAs('png', pngFile, 300);
   const output = await readFile(pngFile), decoded = PNG.sync.read(output);
   assert.equal(decoded.width, 9272); assert.equal(decoded.height, 6201);
