@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Circle, Download, FilePlus2, FolderOpen, MousePointer2, RectangleHorizontal, Redo2, Save, SaveAll, TrainFront, Undo2, X, LoaderCircle, Check, Keyboard, GitBranch } from 'lucide-react';
-import { createProject, fitBackground, type Color, type WagonKind, type Point, type Project } from './model';
+import { createProject, fitBackground, type CityStyle, type Color, type WagonKind, type Point, type Project } from './model';
 import { exportSvg } from './scene';
 import { pngDimensions, rasterizeSvg } from './png';
 import { useEditor } from './useEditor';
@@ -20,6 +20,7 @@ export default function App() {
   const [tool, setTool] = useState<Tool>('select');
   const [color, setColor] = useState<Color>('gray');
   const [wagonKind, setWagonKind] = useState<WagonKind>('regular');
+  const [cityStyle, setCityStyle] = useState<CityStyle>('classic');
   const [path, setPath] = useState<string | null>(null);
   const [saved, setSaved] = useState(editor.project);
   const [backgroundMode, setBackgroundMode] = useState(false);
@@ -51,7 +52,7 @@ export default function App() {
   }, [draft, editor.project, control?.x, control?.y]);
   const dirty = saved !== editor.project;
   useEffect(() => {
-    if (!backgroundMode && (tool === 'route' || tool === 'wagon' || (tool === 'select' && selectedId))) {
+    if (!backgroundMode && (tool !== 'select' || selectedId)) {
       document.querySelector('.inspector-scroll')?.scrollTo({ top: 0 });
     }
   }, [tool, draft?.kind, selectedId, backgroundMode]);
@@ -181,7 +182,7 @@ export default function App() {
     <header className="app-header">
       <div className="brand"><div className="brand-mark"><TrainFront size={25} strokeWidth={1.7} /></div><div><strong>MAP BUILDER</strong><span>TICKET TO RIDE</span></div></div>
       <div className="document-name"><span className={dirty ? 'dirty-dot' : 'saved-dot'} /><strong title={name}>{name}</strong><span>{dirty ? 'Есть изменения' : path ? 'Сохранено' : 'Новый проект'}</span></div>
-      <button className="help-button" title="Горячие клавиши" aria-label="Горячие клавиши" onClick={() => setHelp(true)}><Keyboard size={20} /></button><span className="version-tag">DESKTOP / 1.2.7</span>
+      <button className="help-button" title="Горячие клавиши" aria-label="Горячие клавиши" onClick={() => setHelp(true)}><Keyboard size={20} /></button><span className="version-tag">DESKTOP / 1.2.10</span>
     </header>
     <div className="toolbar">
       <div className="toolbar-group"><button title="Новый проект (Ctrl+N)" onClick={newProject}><FilePlus2 size={17} /><span>Новый</span></button><button title="Открыть проект (Ctrl+O)" onClick={openProject}><FolderOpen size={17} /><span>Открыть</span></button><button title="Сохранить (Ctrl+S)" onClick={() => void run('Сохранение проекта…', () => save())}><Save size={17} /><span>Сохранить</span></button><button title="Сохранить как (Ctrl+Shift+S)" onClick={() => void run('Сохранение проекта…', () => save(true))}><SaveAll size={17} /><span>Сохранить как</span></button></div>
@@ -196,9 +197,9 @@ export default function App() {
         <button className={tool === 'route' && !backgroundMode ? 'active' : ''} aria-label="Маршрут" title="Маршрут по дуге (R)" onClick={() => chooseTool('route')}><GitBranch size={24} /><span>Маршрут</span><kbd>R</kbd></button>
         <div className="rail-bottom"><span className="rail-track"><i /><i /><i /></span><span>СОЗДАВАЙТЕ<br />СВОИ МАРШРУТЫ</span></div>
       </nav>
-      <Board editor={editor} displaySizes={boardSizes} tool={tool} color={color} wagonKind={wagonKind} selectedId={selectedId} onSelect={selectObject} backgroundMode={backgroundMode} fitToken={fitToken} onCursor={setCursor}
+      <Board editor={editor} displaySizes={boardSizes} tool={tool} color={color} wagonKind={wagonKind} cityStyle={cityStyle} selectedId={selectedId} onSelect={selectObject} backgroundMode={backgroundMode} fitToken={fitToken} onCursor={setCursor}
         selectedLink={selectedLink} onSelectLink={selectLink} onPickCity={pickCity} control={control} onControl={point => setDraft(d => d?.kind === 'arc' ? { ...d, control: point } : d)} curve={curve} preview={generation.preview} />
-      <Inspector editor={editor} onLabelSizePreview={setLabelSizePreview} tool={tool} selectedId={selectedId} color={color} setColor={setColor} wagonKind={wagonKind} setWagonKind={setWagonKind} backgroundMode={backgroundMode} setBackgroundMode={value => { setBackgroundMode(value); if (value) { setTool('select'); setDraft(null); } }} importImage={importImage} duplicate={duplicate} remove={remove}
+      <Inspector editor={editor} cityStyle={cityStyle} setCityStyle={setCityStyle} onLabelSizePreview={setLabelSizePreview} tool={tool} selectedId={selectedId} color={color} setColor={setColor} wagonKind={wagonKind} setWagonKind={setWagonKind} backgroundMode={backgroundMode} setBackgroundMode={value => { setBackgroundMode(value); if (value) { setTool('select'); setDraft(null); } }} importImage={importImage} duplicate={duplicate} remove={remove}
         routePanel={!backgroundMode && <RoutePanel editor={editor} active={tool === 'route'} draft={draft} setDraft={setDraft} preview={generation.preview} error={generation.error} route={selectedRoute} link={selectedLink} onCreate={createRoute} onCancel={() => chooseTool('select')} onParallel={route => { setTool('route'); setBackgroundMode(false); setDraft({ kind: 'parallel', sourceId: route.id, gap: 4, side: 1, color }); }} onDisconnect={remove} onDismantle={id => { editor.edit(p => ({ ...p, routes: p.routes.filter(r => r.id !== id) })); setSelectedLink(null); }} />} />
     </main>
     <footer className="statusbar"><div><span className="status-indicator" />{busy || (tool === 'route' ? 'Создание маршрутов' : tool === 'city' ? 'Добавление городов' : tool === 'wagon' ? 'Добавление вагонов' : 'Готово к работе')}</div><div className="object-counts"><span><Circle size={11} />Городов: {cityCount}</span><span><RectangleHorizontal size={14} />Вагонов: {wagonCount}</span><span><GitBranch size={13} />Маршрутов: {editor.project.routes.filter(complete).length}</span></div><div className="cursor-coordinates">{cursor ? `X ${formatNumber(cursor.x, 1)} · Y ${formatNumber(cursor.y, 1)} мм` : 'Все размеры в миллиметрах'}</div></footer>

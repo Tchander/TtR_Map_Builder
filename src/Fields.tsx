@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { PALETTE, type Color, type WagonKind } from './model';
+import { CITY_STYLE_NAMES, cityStyleSchema, PALETTE, type CityStyle, type Color, type WagonKind } from './model';
 
 export const formatNumber = (value: number, digits = 2) => Number(value.toFixed(digits)).toLocaleString('ru-RU', { maximumFractionDigits: digits, useGrouping: false });
 export function NumberField({ label, value, onChange, onPreview, unit = 'мм', positive = false, min, max, disabled = false }: {
@@ -46,6 +46,17 @@ export function WagonKindField({ label, value, onChange }: { label: string; valu
       <option value="tunnel">Тоннель</option>
     </select>
   </label>;
+}
+export function CityStyleField({ label, value, onChange }: { label: string; value: CityStyle; onChange: (style: CityStyle) => void }) {
+  return <div className="city-styles" role="group" aria-label={label}>
+    <span className="small-label">{label} · {CITY_STYLE_NAMES[value]}</span>
+    <div className="palette">{cityStyleSchema.options.map(style => <button type="button" className={`swatch ${value === style ? 'chosen' : ''}`}
+      key={style} aria-pressed={value === style} title={CITY_STYLE_NAMES[style]} aria-label={CITY_STYLE_NAMES[style]} onClick={() => onChange(style)}>
+      <svg viewBox="-6 -6 12 12" width="20" height="20" aria-hidden="true">
+        {style === 'classic' ? <circle r="4.75" fill="white" stroke="#34383e" strokeWidth=".5"/> : <use href={`#city-marker-${style}`}/>}
+      </svg>
+    </button>)}</div>
+  </div>;
 }
 export function Palette({ value, onChange, disabled = false }: { disabled?: boolean; value: Color; onChange: (value: Color) => void }) {
   return <div className="palette" role="group" aria-label="Цвет вагона">{PALETTE.map(color => <button key={color.id} type="button" title={color.name} aria-label={color.name}

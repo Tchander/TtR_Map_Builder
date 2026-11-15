@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 export const PALETTE = [
   { id: 'gray', name: 'Серый', hex: '#9ca3af' },
-  { id: 'white', name: 'Белый', hex: '#ffffff' },
+  { id: 'white', name: 'Белый', hex: '#fafafa' },
   { id: 'black', name: 'Чёрный', hex: '#38393f' },
   { id: 'pink', name: 'Розовый', hex: '#e58db5' },
   { id: 'green', name: 'Зелёный', hex: '#71b073' },
@@ -17,9 +17,19 @@ const number = z.number().finite();
 const positive = number.positive();
 export const DEFAULT_CITY_LABEL_SIZE = 3.5;
 const base = { id: z.string().min(1).max(128), x: number, y: number };
+export const cityStyleSchema = z.enum([
+  'classic', 'apricot', 'amber', 'mandarin', 'azure', 'denim', 'sapphire',
+  'pistachio', 'mint', 'eucalyptus', 'emerald',
+]);
+export type CityStyle = z.infer<typeof cityStyleSchema>;
+export const CITY_STYLE_NAMES: Record<CityStyle, string> = {
+  classic: 'Белый', apricot: 'Абрикос', amber: 'Янтарь', mandarin: 'Мандарин',
+  azure: 'Лазурь', denim: 'Деним', sapphire: 'Сапфир',
+  pistachio: 'Фисташка', mint: 'Мята', eucalyptus: 'Эвкалипт', emerald: 'Изумруд',
+};
 const citySchema = z.object({
   ...base, type: z.literal('city'), name: z.string().max(120),
-  labelOffset: z.object({ x: number, y: number }),
+  labelOffset: z.object({ x: number, y: number }), markerStyle: cityStyleSchema.optional(),
 });
 const wagonKindSchema = z.enum(['regular', 'locomotive', 'tunnel']);
 export type WagonKind = z.infer<typeof wagonKindSchema>;
@@ -134,9 +144,9 @@ export function fitCamera(width: number, height: number, board: ProjectV1['board
   const safe = Math.max(0.0001, scale);
   return { x: (width - board.width * safe) / 2, y: (height - board.height * safe) / 2, scale: safe };
 }
-export function makeObject(type: 'city' | 'wagon', point: Point, color: Color = 'gray', kind: WagonKind = 'regular'): MapObject {
+export function makeObject(type: 'city' | 'wagon', point: Point, color: Color = 'gray', kind: WagonKind = 'regular', cityStyle: CityStyle = 'classic'): MapObject {
   const base = { id: crypto.randomUUID(), ...point };
-  return type === 'city' ? { ...base, type, name: '', labelOffset: { x: 8, y: -7 } } : { ...base, type, kind, angle: 0, color: wagonColor(kind, color) };
+  return type === 'city' ? { ...base, type, name: '', markerStyle: cityStyle, labelOffset: { x: 8, y: -7 } } : { ...base, type, kind, angle: 0, color: wagonColor(kind, color) };
 }
 export function fitBackground(asset: { dataUrl: string; name: string; pixelWidth: number; pixelHeight: number }, board: ProjectV1['board']): Background {
   const scale = Math.min(board.width / asset.pixelWidth, board.height / asset.pixelHeight);

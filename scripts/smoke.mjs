@@ -56,9 +56,27 @@ try {
   log('blank offline launch and default sizes');
 
   await page.getByRole('button', { name: 'Город', exact: true }).click();
+  const newMarker = page.getByRole('group', { name: 'Оформление нового города', exact: true });
+  const chosenMarker = page.getByRole('group', { name: 'Оформление выбранного города', exact: true });
+  const markerFor = name => page.locator('.map-objects [data-object-id]').filter({ hasText: name }).locator('use');
+  await expect(newMarker.getByRole('button', { name: 'Белый', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  await newMarker.getByRole('button', { name: 'Абрикос', exact: true }).click();
   await clickWorld(160, 180); await field('Название города', 'Москва');
+  await newMarker.getByRole('button', { name: 'Лазурь', exact: true }).click();
+  await expect(markerFor('Москва')).toHaveAttribute('href', '#city-marker-apricot');
   await clickWorld(560, 180); await field('Название города', 'Санкт-Петербург');
   await page.getByRole('button', { name: 'Выделение', exact: true }).click();
+  await clickWorld(160, 180);
+  for (const [name, id] of [['Янтарь', 'amber'], ['Мандарин', 'mandarin'], ['Деним', 'denim'], ['Сапфир', 'sapphire']]) {
+    await chosenMarker.getByRole('button', { name, exact: true }).click();
+    await expect(markerFor('Москва')).toHaveAttribute('href', '#city-marker-' + id);
+    await expect(markerFor('Санкт-Петербург')).toHaveAttribute('href', '#city-marker-azure');
+  }
+  await page.getByRole('button', { name: 'Отменить', exact: true }).click();
+  await expect(markerFor('Москва')).toHaveAttribute('href', '#city-marker-denim');
+  await page.getByRole('button', { name: 'Повторить', exact: true }).click();
+  await expect(markerFor('Москва')).toHaveAttribute('href', '#city-marker-sapphire');
+  log('six individual city styles, independent placement preference, undo and redo');
   const start = await world(560, 180), end = await world(590, 195);
   await page.mouse.move(start.x, start.y); await page.mouse.down(); await page.mouse.move(end.x, end.y, { steps: 8 }); await page.mouse.up();
   await expect.poll(async () => Math.abs(Number((await page.getByRole('textbox', { name: 'X объекта', exact: true }).inputValue()).replace(',', '.')) - 590)).toBeLessThan(.01);
@@ -156,6 +174,8 @@ try {
   await page.getByRole('button', { name: 'Завершить перемещение', exact: true }).click();
   const beforeSave = await readProject();
   assert.equal(beforeSave.sizes.cityLabelFontSize, 5);
+  assert.equal(beforeSave.objects.find(o => o.name === 'Москва').markerStyle, 'sapphire');
+  assert.equal(beforeSave.objects.find(o => o.name === 'Санкт-Петербург').markerStyle, 'azure');
   assert.ok(beforeSave.objects.filter(o => o.type === 'city').every(o => !Object.hasOwn(o, 'labelFontSize')));
   assert.equal(beforeSave.background.opacity, .65); assert.ok(beforeSave.background.dataUrl.startsWith('data:image/png;base64,'));
   const copied = path.join(out, 'Перенесённый проект.ttrmap.json');
@@ -166,6 +186,8 @@ try {
   await setOpen(copied); await page.getByRole('button', { name: 'Открыть', exact: true }).click(); await idle();
   assert.equal(await page.locator('[data-object-id]').count(), 11);
   await expectLabelSize('5');
+  await expect(markerFor('Москва')).toHaveAttribute('href', '#city-marker-sapphire');
+  await expect(markerFor('Санкт-Петербург')).toHaveAttribute('href', '#city-marker-azure');
   await fontSize.fill('7');
   await expectLabelSize('7');
   await fontSize.press('Escape');
@@ -183,6 +205,17 @@ try {
   await exportAs('png', pngFile, 300);
   const output = await readFile(pngFile), decoded = PNG.sync.read(output);
   assert.equal(decoded.width, 9272); assert.equal(decoded.height, 6201);
+  function centerRGB(cityName) {
+    const city = beforeSave.objects.find(object => object.name === cityName);
+    assert.ok(svg.includes('href="#city-marker-' + city.markerStyle + '"'));
+    const px = Math.round(city.x * decoded.width / beforeSave.board.width);
+    const py = Math.round(city.y * decoded.height / beforeSave.board.height);
+    const offset = 4 * (py * decoded.width + px);
+    return decoded.data.subarray(offset, offset + 3);
+  }
+  const sapphire = centerRGB('Москва'), azure = centerRGB('Санкт-Петербург');
+  assert.ok(sapphire[2] > sapphire[0] + 40 && azure[2] > azure[0] + 40);
+  assert.ok(azure[1] > sapphire[1] + 30, 'PNG should show different blue shades at the two city centres');
   let ppm = 0;
   for (let at = 8; at < output.length;) { const length = output.readUInt32BE(at); if (output.toString('ascii', at + 4, at + 8) === 'pHYs') ppm = output.readUInt32BE(at + 8); at += length + 12; }
   assert.equal(ppm, 11811);
@@ -201,6 +234,38 @@ try {
   assert.ok((await page.title()).startsWith('•'));
   await confirm(1); await page.getByRole('button', { name: 'Новый', exact: true }).click(); await idle(); assert.equal(await page.locator('[data-object-id]').count(), 0);
   log('invalid files, unsaved changes confirmation, cancelled save, discard');
+  const greenStyles = [
+    { city: 'Пермь', label: 'Фисташка', style: 'pistachio', x: 120, rgb: [189, 202, 145] },
+    { city: 'Тула', label: 'Мята', style: 'mint', x: 280, rgb: [153, 210, 180] },
+    { city: 'Псков', label: 'Эвкалипт', style: 'eucalyptus', x: 440, rgb: [138, 186, 172] },
+    { city: 'Киров', label: 'Изумруд', style: 'emerald', x: 600, rgb: [83, 157, 125] },
+  ];
+  await page.getByRole('button', { name: 'Город', exact: true }).click();
+  for (const { city, label, x } of greenStyles) {
+    await newMarker.getByRole('button', { name: label, exact: true }).click();
+    await clickWorld(x, 250); await field('Название города', city);
+  }
+  await page.getByRole('button', { name: 'Выделение', exact: true }).click();
+  await clickWorld(600, 250);
+  await chosenMarker.getByRole('button', { name: 'Мята', exact: true }).click();
+  await expect(markerFor('Киров')).toHaveAttribute('href', '#city-marker-mint');
+  await expect(markerFor('Пермь')).toHaveAttribute('href', '#city-marker-pistachio');
+  await page.getByRole('button', { name: 'Отменить', exact: true }).click();
+  const greenFile = path.join(out, 'Зелёные города.ttrmap.json');
+  await setSave(greenFile); await page.getByRole('button', { name: 'Сохранить', exact: true }).click(); await idle();
+  await page.getByRole('button', { name: 'Новый', exact: true }).click(); await idle();
+  await setOpen(greenFile); await page.getByRole('button', { name: 'Открыть', exact: true }).click(); await idle();
+  await exportAs('svg', path.join(out, 'green.svg'));
+  await exportAs('png', path.join(out, 'green.png'), 96);
+  const greenSvg = await readFile(path.join(out, 'green.svg'), 'utf8');
+  const greenPng = PNG.sync.read(await readFile(path.join(out, 'green.png')));
+  for (const { city, style, x, rgb } of greenStyles) {
+    await expect(markerFor(city)).toHaveAttribute('href', '#city-marker-' + style);
+    assert.ok(greenSvg.includes('href="#city-marker-' + style + '"'));
+    const pixel = 4 * (Math.round(250 * greenPng.height / 525) * greenPng.width + Math.round(x * greenPng.width / 785));
+    rgb.forEach((channel, i) => assert.ok(Math.abs(greenPng.data[pixel + i] - channel) < 8, city + ' PNG colour'));
+  }
+  log('four green city styles retain their individual appearance after editing, reopening, and SVG/PNG export');
   assert.deepEqual(errors, []); log('no renderer exceptions');
   await writeFile(path.join(out, 'smoke-report.json'), JSON.stringify({ passed: true, rendererErrors: errors, png: { width: decoded.width, height: decoded.height, dpi: 300, pixelsPerMetre: ppm }, objects: beforeSave.objects.length }, null, 2));
 } catch (error) {

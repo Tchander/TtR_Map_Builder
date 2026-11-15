@@ -1,5 +1,6 @@
 import { colorHex, wagonColor, type Project, type MapObject, type Wagon } from './model';
 import { connectionPoints, routeConnections } from './routes';
+import { cityMarkerDefs } from './cityMarkers';
 
 export const xml = (text: string) => text.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g, '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 function wagonDecoration(wagon: Wagon, width: number, height: number): string {
@@ -35,7 +36,10 @@ export function objectMarkup(object: MapObject, sizes: Project['sizes'], interac
   const fontSize = sizes.cityLabelFontSize;
   const labelStroke = fontSize * (2.8 / 19.5); // Halo-to-type ratio from the Georgia specimen.
   const label = object.name ? `<text${interactive ? ' data-part="label"' : ''} x="${object.labelOffset.x}" y="${object.labelOffset.y}" font-family="Georgia, serif" font-size="${fontSize}" font-weight="700" fill="#503b34" stroke="#fff7e5" stroke-width="${labelStroke}" stroke-linejoin="round" paint-order="stroke fill">${xml(object.name)}</text>` : '';
-  return `<g${id} transform="translate(${object.x} ${object.y})"><circle r="${(sizes.cityDiameter - stroke) / 2}" fill="white" stroke="#34383e" stroke-width="${stroke}"/>${label}</g>`;
+  const marker = object.markerStyle && object.markerStyle !== 'classic'
+    ? `<use href="#city-marker-${object.markerStyle}" transform="scale(${sizes.cityDiameter / 10})"/>`
+    : `<circle r="${(sizes.cityDiameter - stroke) / 2}" fill="white" stroke="#34383e" stroke-width="${stroke}"/>`;
+  return `<g${id} transform="translate(${object.x} ${object.y})">${marker}${label}</g>`;
 }
 export function backgroundMarkup(project: Project): string {
   const bg = project.background;
@@ -55,5 +59,5 @@ export function sceneMarkup(project: Project, interactive = false): string {
 }
 export function exportSvg(project: Project, includeBackground = true): string {
   const { width, height } = project.board;
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${width}mm" height="${height}mm" viewBox="0 0 ${width} ${height}" overflow="hidden"><defs><clipPath id="board"><rect width="${width}" height="${height}"/></clipPath></defs><g clip-path="url(#board)"><rect width="${width}" height="${height}" fill="white"/>${includeBackground ? backgroundMarkup(project) : ''}${sceneMarkup(project)}</g></svg>`;
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<svg xmlns="http://www.w3.org/2000/svg" width="${width}mm" height="${height}mm" viewBox="0 0 ${width} ${height}" overflow="hidden"><defs>${cityMarkerDefs}<clipPath id="board"><rect width="${width}" height="${height}"/></clipPath></defs><g clip-path="url(#board)"><rect width="${width}" height="${height}" fill="white"/>${includeBackground ? backgroundMarkup(project) : ''}${sceneMarkup(project)}</g></svg>`;
 }

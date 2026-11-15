@@ -1,14 +1,15 @@
 import { Circle, Copy, FlipHorizontal2, GitBranch, ImagePlus, Map, RectangleHorizontal, SlidersHorizontal, Trash2, X, Move, Scan } from 'lucide-react';
 import type { Editor } from './useEditor';
 import type { Tool } from './Board';
-import { fitBackground, normalizeAngle, wagonColor, type WagonKind, type Color, type MapObject } from './model';
-import { NumberField, Palette, TextField, WagonKindField } from './Fields';
+import { fitBackground, normalizeAngle, wagonColor, type CityStyle, type WagonKind, type Color, type MapObject } from './model';
+import { CityStyleField, NumberField, Palette, TextField, WagonKindField } from './Fields';
 import { complete } from './routes';
 
-export default function Inspector({ editor, tool, selectedId, color, setColor, wagonKind, setWagonKind, onLabelSizePreview, backgroundMode, setBackgroundMode, importImage, duplicate, remove, routePanel }: {
+export default function Inspector({ editor, tool, selectedId, color, setColor, wagonKind, setWagonKind, cityStyle, setCityStyle, onLabelSizePreview, backgroundMode, setBackgroundMode, importImage, duplicate, remove, routePanel }: {
   editor: Editor; tool: Tool; selectedId: string | null; color: Color; setColor: (value: Color) => void;
   backgroundMode: boolean; setBackgroundMode: (value: boolean) => void; importImage: () => void; duplicate: () => void; remove: () => void;
   wagonKind: WagonKind; setWagonKind: (value: WagonKind) => void;
+  cityStyle: CityStyle; setCityStyle: (value: CityStyle) => void;
   onLabelSizePreview: (size: number | undefined) => void;
   routePanel?: React.ReactNode;
 }) {
@@ -38,6 +39,9 @@ export default function Inspector({ editor, tool, selectedId, color, setColor, w
     </section>
     <div className="inspector-scroll">
       {tool === 'route' && routePanel}
+      {tool === 'city' && <section><h3><Circle size={15} />Новый город</h3>
+        <CityStyleField label="Оформление нового города" value={cityStyle} onChange={setCityStyle} />
+      </section>}
       {tool === 'wagon' && <section><h3><RectangleHorizontal size={15} />Новый вагон</h3>
         <WagonKindField label="Тип нового вагона" value={wagonKind} onChange={setWagonKind} />
         <label className="small-label">Цвет новых вагонов</label>
@@ -57,7 +61,11 @@ export default function Inspector({ editor, tool, selectedId, color, setColor, w
           <label className="small-label">Цвет выбранного вагона</label>
           <Palette value={selected.color} disabled={selected.kind === 'locomotive'} onChange={color => changeObject(o => o.type === 'wagon' ? { ...o, color } : o)} />
         </>}
-        {selected.type === 'city' && <TextField key={selected.id} autoFocus={tool === 'city'} label="Название города" value={selected.name} placeholder="Например, Санкт-Петербург" onChange={name => changeObject(o => o.type === 'city' ? { ...o, name } : o)} />}
+        {selected.type === 'city' && <>
+          <TextField key={selected.id} autoFocus={tool === 'city'} label="Название города" value={selected.name} placeholder="Например, Санкт-Петербург" onChange={name => changeObject(o => o.type === 'city' ? { ...o, name } : o)} />
+          <CityStyleField label="Оформление выбранного города" value={selected.markerStyle ?? 'classic'}
+            onChange={markerStyle => changeObject(o => o.type === 'city' ? { ...o, markerStyle } : o)} />
+        </>}
         <div className="field-row"><NumberField label="X объекта" value={selected.x} onChange={x => changeObject(o => ({ ...o, x }))} /><NumberField label="Y объекта" value={selected.y} onChange={y => changeObject(o => ({ ...o, y }))} /></div>
         {selected.type === 'wagon' && <>
           <NumberField label="Угол поворота" value={selected.angle} min={0} max={360} unit="°" onChange={angle => changeObject(o => o.type === 'wagon' ? { ...o, angle: normalizeAngle(angle) } : o)} />

@@ -61,6 +61,16 @@ describe('project data', () => {
     expect(parseProjectText(serializeProject(restored))).toEqual(restored);
     expect(() => parseProject({ ...p, objects: [{ ...wagon, kind: 'invalid' }] })).toThrow();
   });
+  it('renders legacy cities in white and preserves individual marker styles in a mixed map', () => {
+    const p = example();
+    const city = p.objects[0];
+    const objects = [city, { ...city, id: 'new-city', markerStyle: 'amber' }];
+    const loaded = parseProject({ ...p, objects });
+    expect(objectMarkup(loaded.objects[0], loaded.sizes)).toContain('fill="white"');
+    expect(objectMarkup(loaded.objects[1], { ...loaded.sizes, cityDiameter: 14 })).toContain('href="#city-marker-amber" transform="scale(1.4)"');
+    expect(parseProjectText(serializeProject(loaded))).toEqual(loaded);
+    expect(() => parseProject({ ...p, objects: [{ ...city, markerStyle: 'unknown' }] })).toThrow();
+  });
 });
 describe('geometry and camera', () => {
   it('rotates around the center correctly', () => {

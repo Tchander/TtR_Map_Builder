@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Maximize, Minus, Plus } from 'lucide-react';
-import { fitCamera, makeObject, normalizeAngle, screenToWorld, zoomAt, type Camera, type Color, type WagonKind, type Point, type Project } from './model';
+import { fitCamera, makeObject, normalizeAngle, screenToWorld, zoomAt, type Camera, type CityStyle, type Color, type WagonKind, type Point, type Project } from './model';
+import { cityMarkerDefs } from './cityMarkers';
 import { backgroundMarkup, sceneMarkup } from './scene';
 import type { Editor } from './useEditor';
 import { formatNumber } from './Fields';
@@ -13,9 +14,10 @@ interface Drag {
   start: Point; camera: Camera; before: Project; id?: string; startAngle?: number;
   control?: Point;
 }
-export default function Board({ editor, displaySizes, tool, color, wagonKind, selectedId, onSelect, backgroundMode, fitToken, onCursor, selectedLink, onSelectLink, onPickCity, control, onControl, curve, preview }: {
+export default function Board({ editor, displaySizes, tool, color, wagonKind, cityStyle, selectedId, onSelect, backgroundMode, fitToken, onCursor, selectedLink, onSelectLink, onPickCity, control, onControl, curve, preview }: {
   editor: Editor; tool: Tool; color: Color; wagonKind: WagonKind; selectedId: string | null; onSelect: (id: string | null) => void;
   displaySizes: Project['sizes'];
+  cityStyle: CityStyle;
   backgroundMode: boolean; fitToken: number; onCursor: (point: Point | null) => void;
   selectedLink: LinkSelection | null; onSelectLink: (link: LinkSelection) => void;
   onPickCity: (id: string) => void;
@@ -111,7 +113,7 @@ export default function Board({ editor, displaySizes, tool, color, wagonKind, se
       }
     } else if (tool === 'city' || tool === 'wagon') {
       if (world.x < 0 || world.y < 0 || world.x > project.board.width || world.y > project.board.height) return;
-      const object = makeObject(tool, world, color, wagonKind);
+      const object = makeObject(tool, world, color, wagonKind, cityStyle);
       editor.edit(current => ({ ...current, objects: [...current.objects, object] }));
       onSelect(object.id); return;
     } else if (target.closest('[data-rotate]') && selected?.type === 'wagon') {
@@ -178,6 +180,7 @@ export default function Board({ editor, displaySizes, tool, color, wagonKind, se
     <div className="canvas-caption"><span className="live-dot" />{backgroundMode ? 'РЕЖИМ ПОДЛОЖКИ' : 'РАБОЧЕЕ ПОЛЕ'}<span>{formatNumber(project.board.width)} × {formatNumber(project.board.height)} мм</span></div>
     <svg ref={svg} className="board-svg" data-testid="board" aria-label="Редактор игрового поля" width="100%" height="100%"
       onPointerDown={down} onPointerMove={move} onPointerUp={up} onPointerCancel={up} onLostPointerCapture={up} onPointerLeave={() => { if (!drag.current) onCursor(null); }} onContextMenu={event => event.preventDefault()}>
+      <defs dangerouslySetInnerHTML={{ __html: cityMarkerDefs }} />
       <g transform={`translate(${camera.x} ${camera.y}) scale(${camera.scale})`}>
         <rect className="paper" width={project.board.width} height={project.board.height} fill="white" />
         <svg width={project.board.width} height={project.board.height} overflow="hidden" pointerEvents="none"><g dangerouslySetInnerHTML={{ __html: bgSvg }} /></svg>

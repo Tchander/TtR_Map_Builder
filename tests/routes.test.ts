@@ -112,7 +112,8 @@ describe('route geometry and export', () => {
   it('exports real connectors only and respects visibility', () => {
     const p = chain(), svg = exportSvg(p);
     expect(svg.match(/<line /g)).toHaveLength(3); expect(svg).toContain('stroke-width="0.3"');
-    expect(svg.indexOf('<line ')).toBeLessThan(svg.indexOf('rotate('));
+    const firstWagon = svg.search(/<g transform="translate\([^)]+\) rotate\(/);
+    expect(svg.lastIndexOf('<line ')).toBeLessThan(firstWagon);
     expect(svg).not.toMatch(/data-connection|data-port|curve-guide/);
     p.routes[0].showConnections = false; expect(exportSvg(p)).not.toContain('<line ');
   });
